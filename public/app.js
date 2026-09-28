@@ -91,6 +91,7 @@ try {
   if (lastName && presetQuestions(lastName)) currentName = lastName;
 } catch {}
 if (!presetQuestions(currentName)) currentName = '기본';
+refreshPresetOptions(currentName);
 showPreset();
 
 const btnSave = $('save');
