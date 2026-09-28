@@ -45,23 +45,13 @@ jobs:
           from onnx import TensorProto
 
           m = onnx.load("model/encoder.onnx")  # fp32 (external data 로드됨)
-          m16 = float16.convert_float_to_float16(m, keep_io_types=True, disable_shape_infer=True)
-
-          # Cast(to=float32) 후처리 — 변환기가 fp32 cast 출력을 fp16으로 바꾸는 버그 보정
-          fixed = 0
-          for n in m16.graph.node:
-              if n.op_type == "Cast":
-                  to = None
-                  for a in n.attribute:
-                      if a.name == "to":
-                          to = onnx.helper.get_attribute_value(a)
-                  if to == TensorProto.FLOAT:
-                      out = n.output[0]
-                      for vi in list(m16.graph.value_info) + list(m16.graph.output) + list(m16.graph.input):
-                          if vi.name == out and vi.type.tensor_type.elem_type == TensorProto.FLOAT16:
-                              vi.type.tensor_type.elem_type = TensorProto.FLOAT
-                              fixed += 1
-          print("cast fixed:", fixed)
+          # Cast를 blocklist에 넣어 torch-export cast 체인이 fp32를 유지하도록 함.
+          # shape inference는 ON (그래프가 이미 완전 typed라 불필요) — disable_shape_infer 기본(False)
+          m16 = float16.convert_float_to_float16(
+              m, keep_io_types=True,
+              op_block_list=["Cast", "Softmax", "LogSoftmax", "IsNaN", "Where", "Equal", "Expand"],
+          )
+          print("converted")
 
           # 병합 저장 (단일 파일)
           onnx.save(m16, "model/encoder-fp16.onnx")
