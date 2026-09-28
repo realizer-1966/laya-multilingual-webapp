@@ -27,15 +27,24 @@
       h1 { font-size: 1.2rem; margin: 0 0 4px; color: #7ee787; }
       .sub { color: #8b949e; font-size: 0.85rem; margin-bottom: 16px; }
       textarea { width: 100%; min-height: 110px; background: #161b22; color: #e6edf3; border: 1px solid #30363d; border-radius: 10px; padding: 12px; font-size: 15px; }
+      #qjson { min-height: 180px; font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.5; }
+      .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+      select { background: #161b22; color: #e6edf3; border: 1px solid #30363d; border-radius: 10px; padding: 10px 12px; font-size: 14px; flex: 1; min-width: 150px; }
+      .ghost { background: #21262d; color: #e6edf3; border: 1px solid #30363d; border-radius: 10px; padding: 10px 14px; font-size: 14px; cursor: pointer; }
       .btn { display: inline-block; background: #1f6feb; color: #fff; border: 0; border-radius: 10px; padding: 12px 20px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 10px; }
       .btn[disabled] { opacity: 0.5; cursor: default; }
       .status { margin-top: 12px; font-size: 0.85rem; color: #8b949e; white-space: pre-line; }
+      .status.err { color: #f85149; }
       .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 14px; margin-top: 12px; }
       .qname { font-weight: 700; color: #7ee787; }
       .prob { height: 10px; background: #21262d; border-radius: 6px; overflow: hidden; margin: 6px 0 10px; }
       .prob span { display: block; height: 100%; background: #1f6feb; }
       .label { font-size: 0.85rem; }
       .conf { color: #8b949e; font-size: 0.8rem; }
+      details { margin-top: 16px; }
+      summary { cursor: pointer; color: #8b949e; font-size: 0.9rem; user-select: none; }
+      summary b { color: #e6edf3; }
+      .hint { color: #8b949e; font-size: 0.78rem; margin-top: 6px; line-height: 1.45; }
     </style>
   </head>
   <body>
@@ -46,6 +55,16 @@
       <button class="btn" id="run" disabled>모델 로딩 중... (최초 1회 ~200MB)</button>
       <div class="status" id="status"></div>
       <div id="results"></div>
+
+      <details id="qpanel">
+        <summary><b>질문 편집</b> — 판정에 쓸 질문셋 (JSON)</summary>
+        <div class="row">
+          <select id="preset"></select>
+          <button class="ghost" id="reset">초기화</button>
+        </div>
+        <textarea id="qjson" spellcheck="false"></textarea>
+        <div class="hint">type: choice(criteria 객체/배열) &middot; score(순서 레벨 배열 2~10) &middot; noul(명제, criteria 생략 가능). <span id="qerr" style="color:#f85149"></span></div>
+      </details>
     </div>
     <script type="module" src="/app.js"></script>
   </body>
