@@ -494,6 +494,7 @@ export async function createWebProvider(modelUrl, opts) {
     }
     const head = await ort.InferenceSession.create(new Uint8Array(headBuf), {
         executionProviders: ["wasm"],
+        externalData: [`${base}/head.onnx.data`],
     });
     return {
         runEncoder: async (b) => {
