@@ -53,6 +53,13 @@
     <div class="wrap">
       <h1>Laya Multilingual</h1>
       <div class="sub">100+ 언어 판정 엔진 — 텍스트를 넣으면 choice/score/noul 판정을 한 번에 (브라우저 온디바이스, 오프라인 가능)</div>
+      <div class="row" style="margin-top:0">
+        <select id="backend" title="판정 백엔드 선택">
+          <option value="browser">브라우저 (온디바이스)</option>
+          <option value="olllaya">노트북 ollaya (GPU · tailnet)</option>
+        </select>
+        <span class="conf" id="beinfo" style="flex:1"></span>
+      </div>
       <textarea id="text" placeholder="아무 언어로 텍스트를 입력하세요&#10;예: 앱이 결제 중에 크래시되고 두 번 청구됐어요. 환불해주세요."></textarea>
       <button class="btn" id="run" disabled>모델 로딩 중... (최초 1회 ~200MB)</button>
       <div class="status" id="status"></div>
@@ -67,7 +74,7 @@
           <button class="ghost" id="reset">초기화</button>
         </div>
         <textarea id="qjson" spellcheck="false"></textarea>
-        <div class="hint">type: choice(criteria 객체/배열) &middot; score(순서 레벨 배열 2~10) &middot; noul(명제, criteria 생략 가능). + 저장=내 프리셋으로 영구 저장, 삭제=내 프리셋 삭제(내장은 불가). <span id="qerr" style="color:#f85149"></span></div>
+        <div class="hint">백엔드: 브라우저=온디바이스 INT8(오프라인) · 노트북 ollaya=tailnet GPU 서버(폰 밖·노트북이 켜져 있어야). 백엔드 선택은 영구 저장. type: choice(criteria 객체/배열) &middot; score(순서 레벨 배열 2~10) &middot; noul(명제, criteria 생략 가능). + 저장=내 프리셋으로 영구 저장, 삭제=내 프리셋 삭제(내장은 불가). <span id="qerr" style="color:#f85149"></span></div>
       </details>
     </div>
     <script type="module" src="/app.js"></script>

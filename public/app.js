@@ -25,6 +25,59 @@ async function loadModel() {
   btn.textContent = '판정 실행';
 }
 
+// ---- 백엔드 (브라우저 온디바이스 / 노트북 ollaya) ----
+const LS_BACKEND = 'laya-backend';
+const LS_SRV = 'laya-server-url';
+const DEFAULT_SRV = 'http://100.71.1.74:11435';
+let backend = localStorage.getItem(LS_BACKEND) || 'browser';
+let srvUrl = localStorage.getItem(LS_SRV) || DEFAULT_SRV;
+const beSel = $('backend');
+const beinfo = $('beinfo');
+beSel.value = backend === 'olllaya' ? 'olllaya' : 'browser';
+beSel.addEventListener('change', () => {
+  backend = beSel.value;
+  localStorage.setItem(LS_BACKEND, backend);
+  updateBeInfo();
+  if (backend === 'browser' && agent) btn.disabled = false;
+});
+function updateBeInfo() {
+  beinfo.textContent = backend === 'browser'
+    ? '온디바이스 INT8 — 오프라인 가능'
+    : srvUrl + ' — tailnet GPU';
+}
+async function predictRemote(text, questions) {
+  const body = { model: 'laya', state: { body: text }, questions, extras: ['laya'] };
+  const t0 = performance.now();
+  const res = await fetch(srvUrl + '/api/decide', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let msg = res.status;
+    try { const e = await res.json(); msg = e.error || e.code || msg; } catch {}
+    throw new Error('서버 ' + msg + ' (노트북 기동·OLLAYA_ORIGINS 확인)');
+  }
+  const out = await res.json();
+  const ms = (out.server_ms ?? (performance.now() - t0).toFixed(0));
+  // /api/decide 응답을 브라우저 predict 출력 형태로 정규화
+  const answers = {};
+  for (const [k, v] of Object.entries(out.answers ?? {})) {
+    if (v.type === 'choice') {
+      answers[k] = { type: 'choice', choice: v.choice, probabilities: v.probabilities ?? {}, confidence: v.confidence ?? 0 };
+    } else if (v.type === 'noul') {
+      answers[k] = { type: 'noul', noul: v.noul ?? 0 };
+    } else if (v.type === 'score') {
+      answers[k] = { type: 'score', score: v.score ?? 0, confidence: v.confidence ?? 0,
+        legend: Object.fromEntries(Object.entries(v.legend ?? {}).map(([n, l]) => [Number(n), l])),
+        probabilities: Object.fromEntries(Object.entries(v.probabilities ?? {}).map(([n, p]) => [Number(n), p])) };
+    } else {
+      answers[k] = v;
+    }
+  }
+  return { model: out.model, answers, usage: out.usage,
+    routing: out.routing, state_truncated: out.state_truncated, server_ms: ms };
+}
+
 // ---- 질문 프리셋 ----
 const PRESETS = {
   기본: {
@@ -206,8 +259,10 @@ btn.addEventListener('click', async () => {
   status.className = 'status';
   try {
     const t0 = performance.now();
-    const out = await agent.predict({ body: text }, questions);
-    const ms = (performance.now() - t0).toFixed(0);
+    const out = backend === 'olllaya'
+      ? await predictRemote(text, questions)
+      : await agent.predict({ body: text }, questions);
+    const ms = (out.server_ms ?? (performance.now() - t0).toFixed(0));
     const tr = truncationInfo(text, questions);
     let html = '<div class="card">';
     for (const [k, v] of Object.entries(out.answers)) {
@@ -228,7 +283,12 @@ btn.addEventListener('click', async () => {
     const warn = tr.stateTokens > tr.room;
     html += '<div class="stateinfo' + (warn ? ' warn' : '') + '">' +
       'state ' + tr.stateTokens + ' / ' + tr.room + ' tokens (질문 ' + tr.prefixTokens + ' + state, 한도 ' + tr.maxLen + ')' +
-      (warn ? ' — ⚠️ 잘림! 앞 ' + tr.room + '토큰만 판정에 사용됨' : ' — 잘림 없음') + '</div></div>';
+      (warn ? ' — ⚠️ 잘림! 앞 ' + tr.room + '토큰만 판정에 사용됨' : ' — 잘림 없음') + '</div>';
+    if (backend === 'olllaya') {
+      const rt = out.routing ? out.routing.model + ' (' + out.routing.reason + ')' : out.model;
+      html += '<div class="conf">서버: ' + (out.model ?? '') + ' · ' + ms + 'ms 왕복 · 라우팅: ' + rt + '</div>';
+    }
+    html += '</div>';
     $('results').innerHTML = html;
     status.textContent = '완료';
   } catch (e) {
@@ -243,4 +303,11 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
 
-loadModel().catch((e) => { status.textContent = '로딩 실패: ' + e.message; console.error(e); });
+updateBeInfo();
+if (backend === 'browser') {
+  loadModel().catch((e) => { status.textContent = '로딩 실패: ' + e.message; console.error(e); });
+} else {
+  btn.disabled = false;
+  btn.textContent = '판정 실행 (노트북)';
+  status.textContent = '노트북 ollaya 백엔드 대기 — 브라우저 모델 로드 생략 (즉시 사용 가능)';
+}
