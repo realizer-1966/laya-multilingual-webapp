@@ -26,9 +26,10 @@ jobs:
         run: |
           python - <<'PY'
           from onnxruntime.quantization import quantize_dynamic, QuantType
-          quantize_dynamic("model/encoder.onnx", "model/encoder.int8.onnx", weight_type=QuantType.QInt8)
-          quantize_dynamic("model/head.onnx", "model/head.int8.onnx", weight_type=QuantType.QInt8)
-          print("quantized OK")
+          # encoder만 양자화 (head는 shape-inference 충돌로 skip — head는 작은 matmul이라 이득도 적음)
+          quantize_dynamic("model/encoder.onnx", "model/encoder.int8.onnx",
+                           weight_type=QuantType.QInt8, skip_shape_infer=True)
+          print("encoder quantized OK")
           PY
 
       - name: List artifacts
