@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1220" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Laya" />
+    <title>Laya Multilingual</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="icon" href="/icon-192.png" type="image/png" />
+    <script type="importmap">
+      {
+        "imports": {
+          "onnxruntime-web": "/vendor/ort/ort.min.mjs"
+        }
+      }
+    </script>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: system-ui, sans-serif; background: #0b1220; color: #e6edf3; }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+      h1 { font-size: 1.2rem; margin: 0 0 4px; color: #7ee787; }
+      .sub { color: #8b949e; font-size: 0.85rem; margin-bottom: 16px; }
+      textarea { width: 100%; min-height: 110px; background: #161b22; color: #e6edf3; border: 1px solid #30363d; border-radius: 10px; padding: 12px; font-size: 15px; }
+      .btn { display: inline-block; background: #1f6feb; color: #fff; border: 0; border-radius: 10px; padding: 12px 20px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+      .btn[disabled] { opacity: 0.5; cursor: default; }
+      .status { margin-top: 12px; font-size: 0.85rem; color: #8b949e; white-space: pre-line; }
+      .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 14px; margin-top: 12px; }
+      .qname { font-weight: 700; color: #7ee787; }
+      .prob { height: 10px; background: #21262d; border-radius: 6px; overflow: hidden; margin: 6px 0 10px; }
+      .prob span { display: block; height: 100%; background: #1f6feb; }
+      .label { font-size: 0.85rem; }
+      .conf { color: #8b949e; font-size: 0.8rem; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Laya Multilingual</h1>
+      <div class="sub">100+ 언어 판정 엔진 — 텍스트를 넣으면 choice/score/noul 판정을 한 번에 (브라우저 온디바이스, 오프라인 가능)</div>
+      <textarea id="text" placeholder="아무 언어로 텍스트를 입력하세요&#10;예: 앱이 결제 중에 크래시되고 두 번 청구됐어요. 환불해주세요."></textarea>
+      <button class="btn" id="run" disabled>모델 로딩 중... (최초 1회 ~200MB)</button>
+      <div class="status" id="status"></div>
+      <div id="results"></div>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

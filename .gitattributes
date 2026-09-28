@@ -1,0 +1,2 @@
+public/vendor/ort/*.wasm binary
+public/vendor/ort/*.mjs -text
