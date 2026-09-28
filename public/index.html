@@ -41,6 +41,8 @@
       .prob span { display: block; height: 100%; background: #1f6feb; }
       .label { font-size: 0.85rem; }
       .conf { color: #8b949e; font-size: 0.8rem; }
+      .stateinfo { color: #8b949e; font-size: 0.8rem; margin-top: 8px; }
+      .stateinfo.warn { color: #d29922; font-weight: 600; }
       details { margin-top: 16px; }
       summary { cursor: pointer; color: #8b949e; font-size: 0.9rem; user-select: none; }
       summary b { color: #e6edf3; }
@@ -60,10 +62,12 @@
         <summary><b>질문 편집</b> — 판정에 쓸 질문셋 (JSON)</summary>
         <div class="row">
           <select id="preset"></select>
+          <button class="ghost" id="save">+ 저장</button>
+          <button class="ghost" id="delete">삭제</button>
           <button class="ghost" id="reset">초기화</button>
         </div>
         <textarea id="qjson" spellcheck="false"></textarea>
-        <div class="hint">type: choice(criteria 객체/배열) &middot; score(순서 레벨 배열 2~10) &middot; noul(명제, criteria 생략 가능). <span id="qerr" style="color:#f85149"></span></div>
+        <div class="hint">type: choice(criteria 객체/배열) &middot; score(순서 레벨 배열 2~10) &middot; noul(명제, criteria 생략 가능). + 저장=내 프리셋으로 영구 저장, 삭제=내 프리셋 삭제(내장은 불가). <span id="qerr" style="color:#f85149"></span></div>
       </details>
     </div>
     <script type="module" src="/app.js"></script>

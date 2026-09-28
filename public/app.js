@@ -1,5 +1,6 @@
 // Laya Multilingual PWA — 브라우저 온디바이스 판정
-import { Agent } from './vendor/laya-ts/dist/index.js';
+import { Agent, toInternal } from './vendor/laya-ts/dist/index.js';
+import { serializeState, buildQuestionPrefix } from './vendor/laya-ts/dist/common.js';
 import * as ort from 'onnxruntime-web';
 
 const MODEL_BASE = 'https://laya-multilingual.dydtnsp.workers.dev/models/mv2';  // Worker R2 서빙 (절대 URL 필수 — laya-ts baseUrlFor가 스킴 있음을 요구)
@@ -52,44 +53,107 @@ const PRESETS = {
   },
 };
 
-let currentName = '기본';
+// ---- 사용자 정의 프리셋 (localStorage 영구 저장) ----
+const LS_USER = 'laya-user-presets';
+const LS_LAST = 'laya-last-preset';
+function loadUserPresets() {
+  try { return JSON.parse(localStorage.getItem(LS_USER) || '{}'); } catch { return {}; }
+}
+function saveUserPresets(u) {
+  try { localStorage.setItem(LS_USER, JSON.stringify(u)); } catch {}
+}
+function refreshPresetOptions(selected) {
+  const all = { ...PRESETS, ...loadUserPresets() };
+  presetSel.innerHTML = '';
+  const groupDef = document.createElement('optgroup'); groupDef.label = '내장 프리셋';
+  const groupUser = document.createElement('optgroup'); groupUser.label = '내 프리셋';
+  for (const [name, q] of Object.entries(all)) {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    (name in PRESETS ? groupDef : groupUser).appendChild(opt);
+  }
+  presetSel.appendChild(groupDef); presetSel.appendChild(groupUser);
+  presetSel.value = selected;
+}
+function presetQuestions(name) {
+  return { ...PRESETS, ...loadUserPresets() }[name];
+}
 
+let currentName = '기본';
 function showPreset() {
-  qjson.value = JSON.stringify(PRESETS[currentName], null, 2);
+  qjson.value = JSON.stringify(presetQuestions(currentName), null, 2);
   qerr.textContent = '';
 }
 
-// 초기화: 저장된 편집 복원(세션 내) 또는 기본 프리셋
+// 마지막 사용 프리셋 복원
 try {
-  const savedName = sessionStorage.getItem('laya-preset');
-  const savedJson = sessionStorage.getItem('laya-questions');
-  if (savedName && PRESETS[savedName]) { currentName = savedName; }
-  if (savedJson) { qjson.value = savedJson; } else { showPreset(); }
-} catch { showPreset(); }
+  const lastName = sessionStorage.getItem(LS_LAST) || localStorage.getItem(LS_LAST);
+  if (lastName && presetQuestions(lastName)) currentName = lastName;
+} catch {}
+if (!presetQuestions(currentName)) currentName = '기본';
+showPreset();
 
-for (const name of Object.keys(PRESETS)) {
-  const opt = document.createElement('option');
-  opt.value = name; opt.textContent = name;
-  presetSel.appendChild(opt);
-}
-presetSel.value = currentName;
+const btnSave = $('save');
+const btnDelete = $('delete');
+
 presetSel.addEventListener('change', () => { currentName = presetSel.value; showPreset(); });
-$('reset').addEventListener('click', () => { currentName = presetSel.value; showPreset(); });
+$('reset').addEventListener('click', () => showPreset());
+
+// ---- 사용자 프리셋 저장/삭제 ----
+btnSave.addEventListener('click', () => {
+  let q;
+  try { q = JSON.parse(qjson.value); validateQuestions(q); }
+  catch (e) { qerr.textContent = '저장 실패: ' + e.message; return; }
+  let name = prompt('프리셋 이름을 입력하세요 (내장과 같은 이름은 덮어씀):', currentName in PRESETS ? '' : currentName);
+  if (!name) return;
+  name = name.trim();
+  if (!name) return;
+  const users = loadUserPresets();
+  users[name] = q;
+  saveUserPresets(users);
+  currentName = name;
+  refreshPresetOptions(name);
+  qerr.textContent = '';
+  status.textContent = '프리셋 "' + name + '" 저장됨';
+  status.className = 'status';
+});
+
+btnDelete.addEventListener('click', () => {
+  if (currentName in PRESETS) { qerr.textContent = '내장 프리셋은 삭제할 수 없습니다 (덮어쓰려면 같은 이름으로 저장)'; return; }
+  const users = loadUserPresets();
+  if (!(currentName in users)) return;
+  if (!confirm('프리셋 "' + currentName + '"을(를) 삭제할까요?')) return;
+  delete users[currentName];
+  saveUserPresets(users);
+  currentName = '기본';
+  refreshPresetOptions(currentName);
+  showPreset();
+  status.textContent = '프리셋 삭제됨';
+  status.className = 'status';
+});
+
+// ---- 질문 검증 (공용) ----
+function validateQuestions(q) {
+  if (typeof q !== 'object' || !q || Array.isArray(q)) throw new Error('질문 객체 {이름: 질문} 형태여야 합니다');
+  const keys = Object.keys(q);
+  if (keys.length === 0) throw new Error('최소 1개의 질문이 필요합니다');
+  if (keys.length > 20) throw new Error('질문이 너무 많습니다 (최대 20개)');
+  for (const [k, v] of Object.entries(q)) {
+    if (!v || typeof v !== 'object') throw new Error(k + ': 질문 객체가 아님');
+    if (!['choice', 'score', 'noul'].includes(v.type)) throw new Error(k + ': type은 choice/score/noul 중 하나');
+    if (!v.instructions || typeof v.instructions !== 'string') throw new Error(k + ': instructions(문자열) 필요');
+    if (v.type === 'choice' && !v.criteria) throw new Error(k + ': choice에는 criteria 필요');
+    if (v.type === 'score' && (!Array.isArray(v.criteria) || v.criteria.length < 2 || v.criteria.length > 10)) throw new Error(k + ': score에는 2~10개 레벨 배열 필요');
+    if (v.type === 'noul' && v.criteria && typeof v.criteria !== 'object') throw new Error(k + ': noul의 criteria는 {true, false} 형태');
+  }
+}
 
 // JSON 실시간 검증 + 세션 저장 (편집 중에도 유지)
 qjson.addEventListener('input', () => {
   try {
-    const q = JSON.parse(qjson.value);
-    if (typeof q !== 'object' || !q || Array.isArray(q)) throw new Error('질문 객체 {이름: 질문} 형태여야 합니다');
-    for (const [k, v] of Object.entries(q)) {
-      if (!v || typeof v !== 'object') throw new Error(k + ': 질문 객체가 아님');
-      if (!['choice', 'score', 'noul'].includes(v.type)) throw new Error(k + ': type은 choice/score/noul 중 하나');
-      if (!v.instructions || typeof v.instructions !== 'string') throw new Error(k + ': instructions(문자열) 필요');
-      if (v.type === 'choice' && !v.criteria) throw new Error(k + ': choice에는 criteria 필요');
-      if (v.type === 'score' && (!Array.isArray(v.criteria) || v.criteria.length < 2 || v.criteria.length > 10)) throw new Error(k + ': score에는 2~10개 레벨 배열 필요');
-    }
+    validateQuestions(JSON.parse(qjson.value));
     qerr.textContent = '';
-    try { sessionStorage.setItem('laya-questions', qjson.value); sessionStorage.setItem('laya-preset', currentName); } catch {}
+    try { sessionStorage.setItem('laya-questions', qjson.value); sessionStorage.setItem(LS_LAST, currentName); } catch {}
   } catch (e) {
     if (e instanceof SyntaxError) qerr.textContent = 'JSON 문법 오류: ' + e.message;
     else qerr.textContent = e.message;
@@ -98,10 +162,30 @@ qjson.addEventListener('input', () => {
 
 function currentQuestions() {
   const q = JSON.parse(qjson.value);  // 판정 시 재검증 — 오류는 아래 catch에서 표시
-  if (!q || typeof q !== 'object' || Array.isArray(q) || Object.keys(q).length === 0) {
-    throw new Error('질문 편집: 최소 1개의 질문이 필요합니다');
-  }
+  validateQuestions(q);
   return q;
+}
+
+// ---- state 잘림 계산 (laya-ts와 동일한 시퀀스 구성) ----
+// room = maxLen - prefix - [SEP] 이고 state는 slice(0, room)으로 앞부분만 남는다.
+// 배열 state(웹앱은 {body: text} 객체라 항상 앞부분 보존).
+function truncationInfo(text, questions) {
+  const tok = agent.tok, maxLen = agent.maxLen, headMaxLen = agent.headMaxLen;
+  const stAll = tok.encode(serializeState({ body: text }).split(tok.maskToken).join(' '));
+  let minRoom = Infinity, prefixTokens = 0;
+  for (const qid of Object.keys(questions)) {
+    const prefix = buildQuestionPrefix(tok, toInternal(questions[qid]), maxLen, headMaxLen);
+    const room = Math.max(0, maxLen - prefix.ids.length - 1);
+    prefixTokens += prefix.ids.length;
+    if (room < minRoom) minRoom = room;
+  }
+  return {
+    stateTokens: stAll.length,
+    room: minRoom,
+    truncated: stAll.length > minRoom,
+    prefixTokens,
+    maxLen,
+  };
 }
 
 function bar(name, label, prob) {
@@ -123,23 +207,27 @@ btn.addEventListener('click', async () => {
     const t0 = performance.now();
     const out = await agent.predict({ body: text }, questions);
     const ms = (performance.now() - t0).toFixed(0);
+    const tr = truncationInfo(text, questions);
     let html = '<div class="card">';
     for (const [k, v] of Object.entries(out.answers)) {
       if (v.type === 'choice') {
-        // 최고 라벨의 확률로 표시
         const p = v.probabilities[v.choice] ?? 0;
         html += bar(k, v.choice, p);
       } else if (v.type === 'noul') {
         html += bar(k, v.noul >= 0.5 ? 'YES' : 'NO', v.noul);
       } else {
-        // score: 기댓값
         const legend = Object.values(v.legend ?? {});
         const lv = Math.round(v.score);
         html += bar(k, (legend[lv] ?? v.score) + ' (' + v.score.toFixed(2) + ')', v.answer_confidence);
       }
       html += '<div class="conf" style="margin-top:-6px">교정 신뢰도 ' + (v.answer_confidence * 100).toFixed(1) + '%</div>';
     }
-    html += '<div class="conf">' + ms + 'ms &middot; ' + (out.usage?.input_tokens ?? 0) + ' tokens</div></div>';
+    html += '<div class="conf">' + ms + 'ms &middot; ' + (out.usage?.input_tokens ?? 0) + ' tokens</div>';
+    // state 용량 요약 + 잘림 경고
+    const warn = tr.stateTokens > tr.room;
+    html += '<div class="stateinfo' + (warn ? ' warn' : '') + '">' +
+      'state ' + tr.stateTokens + ' / ' + tr.room + ' tokens (질문 ' + tr.prefixTokens + ' + state, 한도 ' + tr.maxLen + ')' +
+      (warn ? ' — ⚠️ 잘림! 앞 ' + tr.room + '토큰만 판정에 사용됨' : ' — 잘림 없음') + '</div></div>';
     $('results').innerHTML = html;
     status.textContent = '완료';
   } catch (e) {
