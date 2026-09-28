@@ -2,7 +2,7 @@
 import { Agent } from './vendor/laya-ts/dist/index.js';
 import * as ort from 'onnxruntime-web';
 
-const MODEL_BASE = '/models/multilingual/';  // Worker R2 서빙
+const MODEL_BASE = 'https://laya-multilingual.dydtnsp.workers.dev/models/multilingual';  // Worker R2 서빙 (절대 URL 필수 — laya-ts baseUrlFor가 스킴 있음을 요구)
 
 // ort wasm 바이너리는 R2에서 로드 (25MiB assets 제한 회피)
 ort.env.wasm.wasmPaths = '/models/ort/';
