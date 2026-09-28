@@ -1,0 +1,40 @@
+name: Export multilingual ONNX
+
+on:
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet transformers huggingface_hub onnx onnxruntime "laya>=0.3.0"
+
+      - name: Export multilingual to ONNX
+        run: |
+          python laya-ts/scripts/export_onnx.py --repo convaiinnovations/laya --subfolder multilingual --out-dir ./model
+
+      - name: Quantize to INT8 (weight-only dynamic, CPU)
+        run: |
+          python - <<'PY'
+          from onnxruntime.quantization import quantize_dynamic, QuantType
+          quantize_dynamic("model/encoder.onnx", "model/encoder.int8.onnx", weight_type=QuantType.QInt8)
+          quantize_dynamic("model/head.onnx", "model/head.int8.onnx", weight_type=QuantType.QInt8)
+          print("quantized OK")
+          PY
+
+      - name: List artifacts
+        run: ls -lh model/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: laya-multilingual-onnx
+          path: model/
