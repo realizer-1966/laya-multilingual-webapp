@@ -40,22 +40,34 @@ beSel.addEventListener('change', () => {
   updateBeInfo();
   if (backend === 'browser' && agent) btn.disabled = false;
 });
+const keyInput = $('srvkey');
+keyInput.value = srvKey();
+keyInput.addEventListener('change', () => {
+  try { keyInput.value ? localStorage.setItem(LS_AUTH, keyInput.value) : localStorage.removeItem(LS_AUTH); } catch {}
+  status.textContent = keyInput.value ? '서버 키 저장됨' : '서버 키 지움';
+  status.className = 'status';
+});
 function updateBeInfo() {
   beinfo.textContent = backend === 'browser'
     ? '온디바이스 INT8 — 오프라인 가능'
     : srvUrl + ' — tailnet GPU';
 }
+const LS_AUTH = 'laya-server-key';
+function srvKey() { try { return localStorage.getItem(LS_AUTH) || ''; } catch { return ''; } }
 async function predictRemote(text, questions) {
   const body = { model: 'laya', state: { body: text }, questions, extras: ['laya'] };
   const t0 = performance.now();
+  const headers = { 'Content-Type': 'application/json' };
+  const key = srvKey();
+  if (key) headers['Authorization'] = 'Bearer ' + key;
   const res = await fetch(srvUrl + '/api/decide', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers,
     body: JSON.stringify(body),
   });
   if (!res.ok) {
     let msg = res.status;
     try { const e = await res.json(); msg = e.error || e.code || msg; } catch {}
-    throw new Error('서버 ' + msg + ' (노트북 기동·OLLAYA_ORIGINS 확인)');
+    throw new Error('서버 ' + msg + (res.status === 401 ? ' — 서버 키 입력 필요' : ' (노트북 기동·OLLAYA_ORIGINS 확인)'));
   }
   const out = await res.json();
   const ms = (out.server_ms ?? (performance.now() - t0).toFixed(0));
