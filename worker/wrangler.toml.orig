@@ -1,0 +1,14 @@
+name = "laya-multilingual"
+account_id = "56f2f60bdba5a9bf7f58478a14a4ed90"
+main = "worker.js"
+compatibility_date = "2026-09-20"
+
+[assets]
+directory = "../public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# 모델 파일은 R2 바인딩으로 서빙 (퍼블릭 도메인 불필요, CORS는 Worker에서)
+[[r2_buckets]]
+binding = "MODELS"
+bucket_name = "laya-models"

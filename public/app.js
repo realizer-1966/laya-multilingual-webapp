@@ -1,7 +1,12 @@
 // Laya Multilingual PWA — 브라우저 온디바이스 판정
 import { Agent } from './vendor/laya-ts/dist/index.js';
+import * as ort from 'onnxruntime-web';
 
 const MODEL_BASE = '/models/multilingual/';  // Worker R2 서빙
+
+// ort wasm 바이너리는 R2에서 로드 (25MiB assets 제한 회피)
+ort.env.wasm.wasmPaths = '/models/ort/';
+ort.env.wasm.numThreads = 2;
 const $ = (id) => document.getElementById(id);
 const status = $('status');
 const btn = $('run');

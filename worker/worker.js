@@ -22,6 +22,10 @@ export default {
       headers.set("Access-Control-Allow-Origin", "*");
       headers.set("Accept-Ranges", "bytes");
       headers.set("Cache-Control", "public, max-age=31536000, immutable");
+      if (key.endsWith(".mjs")) headers.set("Content-Type", "text/javascript; charset=utf-8");
+      else if (key.endsWith(".json")) headers.set("Content-Type", "application/json; charset=utf-8");
+      else if (key.endsWith(".wasm")) headers.set("Content-Type", "application/wasm");
+      else headers.set("Content-Type", "application/octet-stream");
       return new Response(obj.body, { headers });
     }
     // 나머지는 정적 PWA (assets 바인딩)
