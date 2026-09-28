@@ -1,4 +1,4 @@
-const CACHE = 'laya-app-v4';
+const CACHE = 'laya-app-v5';
 const ASSETS = ['/index.html', '/app.js', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -22,12 +22,13 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (url.pathname.startsWith('/vendor/')) {
+    // network-first: 신선한 런타임 우선, 오프라인 시 캐시 폴백
     e.respondWith(
-      caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
+      fetch(e.request).then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy));
         return res;
-      }))
+      }).catch(() => caches.match(e.request))
     );
     return;
   }

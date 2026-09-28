@@ -481,17 +481,11 @@ export async function createWebProvider(modelUrl, opts) {
         await expectDigest("encoder.onnx", encBuf, opts.expectedSha256);
         await expectDigest("head.onnx", headBuf, opts.expectedSha256);
     }
-    let enc;
-    try {
-        enc = await ort.InferenceSession.create(new Uint8Array(encBuf), {
-            executionProviders: ["webgpu", "wasm"],
-        });
-    }
-    catch (e) {
-        enc = await ort.InferenceSession.create(new Uint8Array(encBuf), {
-            executionProviders: ["wasm"],
-        });
-    }
+    // INT8 dynamic-quantized graph: WebGPU EP passes session creation but fails at run time
+    // (SkipLayerNormalization "Beta must be 1D"). Force WASM for the encoder.
+    const enc = await ort.InferenceSession.create(new Uint8Array(encBuf), {
+        executionProviders: ["wasm"],
+    });
     const head = await ort.InferenceSession.create(new Uint8Array(headBuf), {
         executionProviders: ["wasm"],
     });
