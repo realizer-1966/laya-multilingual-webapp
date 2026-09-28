@@ -193,6 +193,15 @@ async function fetchArrayBuffer(url, onHeaders) {
         cache = null;
     }
     if (cache) {
+        // Cache-first: 이미 받은 모델은 재다운로드하지 않음 (offline에도 동작)
+        if (hit) {
+            try {
+                return await hit.arrayBuffer();
+            }
+            catch {
+                hit = null;
+            }
+        }
         try {
             const res = await fetch(url);
             onHeaders?.(res);
