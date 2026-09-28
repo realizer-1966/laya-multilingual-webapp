@@ -16,7 +16,7 @@ jobs:
       - name: Install deps
         run: |
           pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
-          pip install --quiet transformers huggingface_hub onnx onnxruntime onnxscript "laya>=0.3.0"
+          pip install --quiet transformers huggingface_hub onnx onnxruntime onnxscript onnxconverter-common "laya>=0.3.0"
 
       - name: Export multilingual to ONNX
         run: |
@@ -35,6 +35,38 @@ jobs:
               print("head quantized OK")
           except Exception as e:
               print("head quantize skipped:", e)
+          PY
+
+      - name: Convert encoder to FP16 (WebGPU path)
+        run: |
+          python - <<'PY'
+          import onnx
+          from onnxconverter_common import float16
+          from onnx import TensorProto
+
+          m = onnx.load("model/encoder.onnx")  # fp32 (external data 로드됨)
+          m16 = float16.convert_float_to_float16(m, keep_io_types=True, disable_shape_infer=True)
+
+          # Cast(to=float32) 후처리 — 변환기가 fp32 cast 출력을 fp16으로 바꾸는 버그 보정
+          fixed = 0
+          for n in m16.graph.node:
+              if n.op_type == "Cast":
+                  to = None
+                  for a in n.attribute:
+                      if a.name == "to":
+                          to = onnx.helper.get_attribute_value(a)
+                  if to == TensorProto.FLOAT:
+                      out = n.output[0]
+                      for vi in list(m16.graph.value_info) + list(m16.graph.output) + list(m16.graph.input):
+                          if vi.name == out and vi.type.tensor_type.elem_type == TensorProto.FLOAT16:
+                              vi.type.tensor_type.elem_type = TensorProto.FLOAT
+                              fixed += 1
+          print("cast fixed:", fixed)
+
+          # 병합 저장 (단일 파일)
+          onnx.save(m16, "model/encoder-fp16.onnx")
+          import os
+          print("encoder-fp16:", os.path.getsize("model/encoder-fp16.onnx"))
           PY
 
       - name: List artifacts
